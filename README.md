@@ -1,6 +1,6 @@
 # CS4700 Project 3: BGP Router
 
-This project implements a simplified Border Gateway Protocol (BGP) router capable of maintaining routing state, processing neighbor announcements, forwarding data, and interacting with the CS4700 simulator. The router handles update, withdraw, data, dump, and table messages using JSON over UDP sockets.
+This project implements a simplified Border Gateway Protocol (BGP) router capable of maintaining routing state, processing neighbor announcements, and forwarding data. The router handles update, withdraw, data, dump, and table messages using JSON over UDP sockets.
 
 ## Features
 
