@@ -1,26 +1,57 @@
-# High-Level Design
-Router starts by parsing the neighbor arguments from the CLI, and for every neighbor, creates a UDP socket and binds it to localhost:0 so the OS picks a source port, then stores the neighbor’s IP, UDP port, and relationship (customer/peer/provider) in dictionaries, since they need to be looked up. When the router starts, it sends a handshake message to each neighbor and everything runs inside one main event loop using select(). Whenever a socket has data ready, packet is read and the JSON is decoded and sent to the handler for its type.
+This project implements a simplified Border Gateway Protocol (BGP) router capable of maintaining routing state, processing neighbor announcements and forwarding data. The router handles update, withdraw, data, dump, and table messages using JSON over UDP sockets.
 
-There are two structures, a route candidate cache, for all known routes, and a forwarding table, for the best route for each prefix.
+## Features
 
-For UPDATE messages, I insert or replace the candidate from that neighbor, recompute the best route using the BGP tibreaking rules, and then export the update to the right neighbors and routes from customers are forwarded to all, but but routes from peers/providers only get forwarded to customers.
+- **UDP-based multi-socket router** using `select()` for event-driven I/O  
+- **BGP Update + Withdraw handling** with propagation rules based on peer/provider/customer relationships  
+- **Forwarding table construction** including:  
+  - Longest prefix match  
+  - Local preference  
+  - AS-path comparison  
+  - Origin type ranking  
+  - Consistent deterministic tiebreaking  
+- **Data message forwarding** with legality checks (customer vs peer/provider relationships)  
+- **Error handling:** returns `no route` messages when forwarding is not possible  
+- **Route aggregation & disaggregation** to maintain a compressed routing table  
+- **Supports simulator "dump" → "table" responses** with serialized route state  
 
-For WITHDRAW messages, I remove the matching candidate routes and recompute the best one if needed, with the same relationships rules as UPDATE messages.
+## High-Level Approach
 
-For forwarding data, I convert IPs to integers and use bitmasking to test if the destination falls under a prefix then apply longest prefix first, and if multiple tie, I use the BGP ordering rules localpref, selfOrigin, ASPath length, origin, and lowest next-hop IP. After choosing a route the data can be forwarded only if at least one side is a customer.
+I implemented the router in an event-driven architecture, using `select()` to listen across all neighbor sockets. Each incoming JSON message is parsed and dispatched to handlers for update, withdraw, data, or dump events.
 
-For DUMP messages, I aggregate routes before responding. Aggregation groups routes share every attribute (same next-hop, localpref, origin, ASPath, etc.) and tries to merge siblings into a shorter prefix if they're side by side. Also, withdrawals force disaggregation since aggregation is rebuuilt every time.
+Forwarding table state is stored as structured route objects containing prefix, mask, AS-path, attributes, and next-hop information. After each update or withdraw, the table is rebuilt or aggregated as needed.
 
-# Testing
+For forwarding data packets, the router performs longest-prefix matching followed by tie-breaking rules. Relationship rules (customer, peer, provider) determine whether a packet may legally be forwarded through a given neighbor.
 
-I tested everything using the provided ./run script and the configs directory, and while developing, printed out a lot of debug information, mostly the chosen best routes, so I could match my router’s behavior to the expected outputs in each config.
+## Testing
 
-For the harder tests I added temporary prints of the route candidate sets so I could see exactly what was being kept or discarded then removed most of the debugging messages after making sure the behavior was expecte.d
+I validated the router using the provided simulator and all 16 configuration files under `configs/`:
 
-# Challenges
+```bash
+./run configs/<config-file>```
 
-Test 3-1 was the absolute WORST and gave me the most trouble out of all the configs, my router kept passing the early parts of the test but then broke on every single withdraw, and I kind of just got stuck rereading the expected output and failure output, because whatever I changed to fix the withdraw would break anoter test. Eventually I figured out I was focusing too much on the withdraw method rather than the helpers, and the biggest issue was how I was replacing older routes from the same neighbor and prefix, so after fixing how I filtered candidates before inserting new ones, the rest of the test finally worked. This test also made me rewrite my withdraw handling so that I recompute the best route more cleanly.
+Tests were evaluated across all levels (1–6), covering:
+- Basic update forwarding
+- Tie-breaking and preference rules
+- Withdraw propagation
+- Illegal forwarding behavior
+- Longest-prefix match correctness
+- Aggregation and disaggregation
+All test cases pass without crashes or undefined behavior.
 
-CITATION: Unsure how the citation stuff works, but I used this video to help with understanding the aggregate part, NO CODE WAS COPIED DIRECTLY FROM THE VIDEO: https://www.youtube.com/watch?v=sS0kimy4rj0
+## How to Run
+```./4700router <asn> <port-ip.type> <port-ip.type> ...```
 
+Example:
+```./4700router 7 7833-1.2.3.2-cust 2374-192.168.0.2-peer 1293-67.32.9.2-prov```
 
+The router then:
+- Binds local UDP sockets
+- Sends handshake messages
+- Processes all subsequent traffic from the simulator
+
+## Repository Contents
+- 4700router — main executable/script
+- Makefile
+- README.md
+- Source code implementing router logic
