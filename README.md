@@ -28,8 +28,7 @@ For forwarding data packets, the router performs longest-prefix matching followe
 
 I validated the router using the provided simulator and all 16 configuration files under `configs/`:
 
-```bash
-./run configs/<config-file>```
+`./run configs/<config-file>`
 
 Tests were evaluated across all levels (1–6), covering:
 - Basic update forwarding
@@ -41,10 +40,10 @@ Tests were evaluated across all levels (1–6), covering:
 All test cases pass without crashes or undefined behavior.
 
 ## How to Run
-```./4700router <asn> <port-ip.type> <port-ip.type> ...```
+`./4700router <asn> <port-ip.type> <port-ip.type> ...`
 
 Example:
-```./4700router 7 7833-1.2.3.2-cust 2374-192.168.0.2-peer 1293-67.32.9.2-prov```
+`./4700router 7 7833-1.2.3.2-cust 2374-192.168.0.2-peer 1293-67.32.9.2-prov`
 
 The router then:
 - Binds local UDP sockets
